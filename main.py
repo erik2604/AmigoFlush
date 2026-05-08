@@ -1,6 +1,5 @@
 import game
 import rules
-import scorecard
 
 import pygame
 
@@ -9,7 +8,8 @@ window = pygame.display.set_mode((800, 600))
 
 #Becher erstellen
 my_cup = game.Cup()
-
+#Scoreboard erstellen
+my_scorecard = game.Scorecard()
 
 pygame.display.flip()
 
@@ -27,8 +27,11 @@ while running:
     #Hintergrund zeichnen
     window.fill((100,20,120))
 
-    #Becher inkl. Würfel zeichen
+    #Becher inkl. Würfel zeichnen
     my_cup.show(window)
+    
+    #Scoreboard zeichnen
+    my_scorecard.draw(window)
 
     #3. Anzeigen
     pygame.display.flip()
