@@ -1,7 +1,4 @@
-import cup
-import dice
 import game
-import player
 import rules
 import scorecard
 
@@ -11,7 +8,7 @@ pygame.init()
 window = pygame.display.set_mode((800, 600))
 
 #Becher erstellen
-my_cup = cup.Cup()
+my_cup = game.Cup()
 
 
 pygame.display.flip()
@@ -37,5 +34,4 @@ while running:
     pygame.display.flip()
 
 pygame.quit()
-
 
