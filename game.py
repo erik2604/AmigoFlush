@@ -62,7 +62,14 @@ class Dice:
         
         #Würfel als Rechteck zeichnen
         rect = pygame.Rect(x, y, self.size, self.size)
-        pygame.draw.rect(window, self.color, rect)
+        
+        #Wenn der Würfel gesperrt ist (nicht im Becher), wird die Farbe leicht geändert, damit man sieht, dass er fixiert ist. 
+        if self.in_cup == False:
+            display_color = (200, 200, 200) #Grau
+        else:
+            display_color = self.color      #Weiß
+            
+        pygame.draw.rect(window, display_color, rect)
         
         #Umrandung (schwarz), damit er sich vom Hintergrund abhebt
         pygame.draw.rect(window, (0, 0, 0), rect, 2) 
@@ -77,21 +84,28 @@ class Dice:
 ###PLAYER###
 
 class Player:
-    def __init__(self, name, dices):
+    def __init__(self, name):
         self.name = name
-        self.dices = dices
+        #Jeder Spieler bekommt seine EIGENE Scorecard
+        self.scorecard = Scorecard()
+        #Ein Spieler darf im Kniffel genau 3 mal pro Runde würfeln
+        self.rolls_left = 3
 
-    def update_score(self):
-        pass
+    def get_score(self):
+        #Holt die aktuelle Gesamtpunktzahl von der eigenen Scorecard
+        return self.scorecard.sum()
 
-    def score_points_on_scorecard(self):
-        pass
+    def record_score(self, kategorie, punkte):
+        #Trägt die Punkte auf die eigene Scorecard ein
+        return self.scorecard.score_points_on_scorecard(kategorie, punkte)
 
-    def chose_dices(self):
-        pass
-
-    def reset(self):
-        pass
+    def reset_turn(self, cup):
+        #Wird aufgerufen, wenn der Spieler seinen Zug beendet hat (Punkte wurden eingetragen)
+        #1. Züge wieder auf 3 setzen
+        self.rolls_left = 3
+        #2. Alle Würfel wieder in den Becher legen (in_cup = True)
+        for dice in cup.dice_list:
+            dice.in_cup = True
 
 ###SCORECARD###
 
@@ -144,43 +158,73 @@ class Scorecard:
             return True
         return False
 
-    def draw(self, window):
-        #Zeichnet den Hintergrund für das Scoreboard (linke Seite: x=0 bis 380)
-        bg_rect = pygame.Rect(20, 20, 360, 560)
-        pygame.draw.rect(window, (240, 240, 240), bg_rect) #hellgrauer Kasten
-        pygame.draw.rect(window, (0, 0, 0), bg_rect, 3)    #schwarze Umrandung
 
-        font = pygame.font.SysFont(None, 30)
+def get_clicked_category(mouse_y):
+    #Hilfsfunktion: Berechnet, auf welche Zeile geklickt wurde.
+    #Die erste Zeile beginnt bei y=60, jede Zeile ist 28 Pixel hoch.
+    start_y = 60
+    row_height = 28
+    
+    #Reihenfolge der Kategorien, wie sie gezeichnet werden:
+    kategorien = [
+        "einser", "zweier", "dreier", "vierer", "fuenfer", "sechser",
+        "dreierpasch", "viererpasch", "full_house", "kleine_strasse",
+        "grosse_strasse", "kniffel", "chance"
+    ]
+    
+    if mouse_y < start_y or mouse_y >= start_y + (len(kategorien) * row_height):
+        return None #Außerhalb der Klick-Zone
         
-        y_offset = 40  #Start-Höhe für die erste Zeile
-        
-        #Titel
-        title_text = font.render("SCOREBOARD", True, (0, 0, 0))
-        window.blit(title_text, (130, y_offset))
-        y_offset += 40
+    index = (mouse_y - start_y) // row_height
+    return kategorien[index]
 
-        #Alle Kategorien durchgehen und zeichnen
-        for kategorie, punkte in self.scores.items():
-            #Namen der Kategorie aufhübschen (z.B. "dreier_pasch" -> "Dreierpasch")
-            name_anzeige = kategorie.capitalize().replace("_", "")
-            
-            #Punkte zu String, falls None => Strich
+
+def draw_scoreboard(window, players, current_index):
+    #Zeichnet den Hintergrund für das komplette Scoreboard
+    bg_rect = pygame.Rect(10, 20, 390, 560)
+    pygame.draw.rect(window, (240, 240, 240), bg_rect) # hellgrauer Kasten
+    pygame.draw.rect(window, (0, 0, 0), bg_rect, 3)    # schwarze Umrandung
+
+    font = pygame.font.SysFont(None, 24)
+    font_bold = pygame.font.SysFont(None, 24, bold=True)
+    
+    y_offset = 30  # Start-Höhe
+    
+    #Kopfzeile mit Spielern (P1, P2, P3, P4)
+    x_positions = [160, 220, 280, 340] #Spalten für die 4 Spieler
+    for i, player in enumerate(players):
+        #Aktiven Spieler rot markieren, die anderen schwarz
+        color = (255, 0, 0) if i == current_index else (0, 0, 0)
+        p_text = font_bold.render(f"P{i+1}", True, color)
+        window.blit(p_text, (x_positions[i], y_offset))
+        
+    y_offset += 30
+
+    #Alle Kategorien durchgehen.
+    kategorien = list(players[0].scorecard.scores.keys())
+    
+    for kat in kategorien:
+        #Kategorien-Name links
+        name_anzeige = kat.capitalize().replace("_", " ")
+        name_text = font.render(name_anzeige, True, (0, 0, 0))
+        window.blit(name_text, (20, y_offset))
+        
+        #Punkte für jeden Spieler in seiner jeweiligen Spalte eintragen
+        for i, player in enumerate(players):
+            punkte = player.scorecard.scores[kat]
             punkte_anzeige = str(punkte) if punkte is not None else "-"
-            
-            #Text für Name und Punkte generieren
-            name_text = font.render(name_anzeige, True, (0, 0, 0))
             punkte_text = font.render(punkte_anzeige, True, (0, 0, 0))
+            window.blit(punkte_text, (x_positions[i] + 5, y_offset))
             
-            #Links den Namen blitten, rechts die Punkte
-            window.blit(name_text, (40, y_offset))
-            window.blit(punkte_text, (300, y_offset))
-            
-            y_offset += 30  #Abstand zur nächsten Zeile 
+        y_offset += 28  # Abstand zur nächsten Zeile 
 
-        #Gesamtpunktzahl
-        y_offset += 20
-        summe_text = font.render("Gesamt:", True, (0, 0, 0))
-        summe_punkte_text = font.render(str(self.sum()), True, (0, 0, 0))
-        window.blit(summe_text, (40, y_offset))
-        window.blit(summe_punkte_text, (300, y_offset))
+    #Gesamtpunktzahl am Ende
+    y_offset += 20
+    summe_text = font_bold.render("Gesamt:", True, (0, 0, 0))
+    window.blit(summe_text, (20, y_offset))
+    
+    for i, player in enumerate(players):
+        gesamt = player.scorecard.sum()
+        gesamt_text = font_bold.render(str(gesamt), True, (0, 0, 0))
+        window.blit(gesamt_text, (x_positions[i] + 5, y_offset))
 
